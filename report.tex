@@ -96,7 +96,7 @@ both in terms of speed and correctness – it has to preserve as much informatio
 but also overapproximate the information coming from the merging paths. 
 Note that there is an instantiation of the abstract domain at every program point 
 and information is exchanged between them – the join operation is one example of 
-such exchange. More specifically, every Pentagon domain consists of two 
+such exchange. More specifically, every Pentagon domain \cite{Logozzo2008} consists of two 
 subdomains – interval and strict upper bounds (SUB). The interval subdomain 
 contains a mapping from a variable to an interval of possible values, which 
 the variable may take. In case when no bounds can be inferred, the variable 
@@ -104,7 +104,7 @@ is mapped to an artificial interval called TOP. The SUB domain is a set of
 strict inequalities between variables with the requirement that all of them 
 must hold at the given program point. Note that no inequalities between expressions are allowed.
 
-\mypar{Mechanics of Pentagon join}
+\subsection{Mechanics of Pentagon join}
 Before joining the two domains, a closure operation is performed on each one of them. 
 Its purpose is to enrich (in terms of precision) and exchange the available 
 information between the SUB and interval subdomains. The closure can be described in 3 steps:
@@ -124,12 +124,12 @@ Of course, further inflation of the result would not affect the soundness, but
 the precision will suffer, therefore it is undesireable. 
 The same applies to SUB join -- if an inequality is present in only one of the domains, it should not be included in the result.
 
-\mypar{Cost analysis}
+\subsection{Cost analysis}
 From now on we assume that the SUB domain is encoded as n by n matrix of 0's and 1's 
 where n is the number of variables. 1 on ith row and jth column would designate 
 that ith variable is less than jth variable. Steps 1 and 2 of the closure 
 take \(O(n^2)\). Step 3 takes \(\Theta(n^3)\). It can be implemented using the Floyd-Warshall 
-algorithm [citation] with logical operations – 1 AND and 1 OR in the innermost 
+algorithm \cite{Floyd1962} with logical operations – 1 AND and 1 OR in the innermost 
 loop, thus the exact number of logical operations is \(2n^3\). We do not count 
 the operations needed for updating the loop indices. The interval join is 
 linear and the SUB join takes \(O(n^2)\). In conclusion, the costliest step is 
@@ -143,7 +143,7 @@ performed twice, the total cost of a Pentagon join is \(4n^3 + O(n^2)\) operatio
 \section{Your Proposed Method}\label{sec:yourmethod}
 
 
-\mypar{Naive implementation - STL}
+\subsection{Naive implementation - STL}
 We started with implementation of transitive closure using STL library. 
 It uses STL maps and sets to encode that variable x is less than every 
 variable in a given set. It is very concise in terms of memory 
@@ -154,7 +154,7 @@ The STL implementation proved to be much slower than the others and there
 is no much to do about it, because, as the profiling investigation 
 confirmed, most of the time is spent in STL internals.
 
-\mypar{Better naïve implementation – Dense matrix (DM)}
+\subsection{Better naïve implementation – Dense matrix (DM)}
 For the DM implementation we switched to different representation of the 
 SUB domain – n by n matrix of 1's and 0's. On top of it runs the standart 
 Floyd-Warshall (FW) algorithm (with conditionals after the 2nd and 3rd loop). 
@@ -164,7 +164,7 @@ basis for our verification framework. For the sake of comparison, the DM
 proved to be much faster than the STL implementation, because the data is 
 packed in only one array and there is no extra auxiliary information stored (not the case with STL primitives).
 
-\mypar{Opportunities for improvement}
+\subsection{Opportunities for improvement}
 The first step is to replace the conditionals from FW with logical operations. 
 This streamlines the computation and paves the way for further optimizations 
 (bit-packing and SIMD processing). The downside is that the op count now is exactly \(2n^3\). 
@@ -186,16 +186,16 @@ this fact, tiling for cache is crucial for achieving top performance in cases
 when n is large. Because of the independence of I and j loops, we introduced 
 tiling on them (with configurable parameters) and observed tangible performance improvement.
 
-\mypar{Tiling for cache}
+\subsection{Tiling for cache}
 The restriction on the k loop is imposed by data dependencies 
 (otherwise the algorithm would not compute the full transitive closure), 
-but as shown in [cite pueschel's paper], it can be relaxed through creating 
+but as shown in \cite{Pueschel2006}, it can be relaxed through creating 
 a FW version (FWabc) which works on 3 mutually distinct matrices (two “source” and one “destination”) 
 rather than 1. In this special version the loops can be freely reordered 
 and tiled. In order to unleash the potential of this optimization, tiling 
 of the input matrix is needed. As next step of optimization process we 
 implemented tiled version of FW (FWT, with configurable parameters) following 
-the approach described in [cite pueschel's paper] and [older paper]. The 
+the approach described in \cite{Pueschel2006}. The 
 essence of it is to call FWabc whenever possible (3 different submatrices) 
 during the processing of smaller submatrices. We observed about 4x improvement 
 compared to naïve DM for large n (there is no big difference on small n, because 
@@ -208,7 +208,7 @@ gets bigger than the L2 cache, the performance is severely degraded. Based on ou
 benchmarks, we decided not to implement two levels of tiling, but rather 
 concentrate on loop unrolling and fine-tuning the innermost basic block.
 
-\mypar{Loop unrolling and scalar replacement}
+\subsection{Loop unrolling and scalar replacement}
 During the development of all variants of Pentagon join, we used configurable 
 compile-time unrolling parameters and compiler flags and pragmas to hint 
 the compiler which loops to unroll. The motivation for this decision is 
@@ -292,7 +292,7 @@ convinced you are the reader knows it.
 high quality. Many people may read it and the quality makes a big difference.
 In this class, the quality is part of the grade.
 
-\item Books helping you to write better: \cite{Higham:98} and \cite{Strunk:00}.
+% \item Books helping you to write better: \cite{Higham:98} and \cite{Strunk:00}.
 
 \item Conversion to pdf (latex users only): 
 
