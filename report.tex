@@ -86,52 +86,142 @@ related work. For a paper like this, anywhere between 2 and 8
 references. Briefly explain what they do. In the end contrast to what
 you do to make now precisely clear what your contribution is.
 
-\section{Background: Whatever the Background is}\label{sec:background}
+\section{Background: Abstract interpretation and Transitive closure}\label{sec:background}
 
-Give a short, self-contained summary of necessary
-background information. For example, assume you present an
-implementation of FFT algorithms. You could organize into DFT
-definition, FFTs considered, and cost analysis. The goal of the
-background section is to make the paper self-contained for an audience
-as large as possible. As in every section
-you start with a very brief overview of the section. Here it could be as follows: In this section 
-we formally define the discrete Fourier transform, introduce the algorithms we use
-and perform a cost analysis.
+In the field of Abstract Interpretation the ``join'' operation between two abstract 
+domains is one of the most commonly used, because it is responsible for correctly 
+merging the inferred information coming from two different program flow paths. 
+Since most programs heavily rely on branching, the ``join'' operation must be perfected 
+both in terms of speed and correctness – it has to preserve as much information as possible, 
+but also overapproximate the information coming from the merging paths. 
+Note that there is an instantiation of the abstract domain at every program point 
+and information is exchanged between them – the join operation is one example of 
+such exchange. More specifically, every Pentagon domain consists of two 
+subdomains – interval and strict upper bounds (SUB). The interval subdomain 
+contains a mapping from a variable to an interval of possible values, which 
+the variable may take. In case when no bounds can be inferred, the variable 
+is mapped to an artificial interval called TOP. The SUB domain is a set of 
+strict inequalities between variables with the requirement that all of them 
+must hold at the given program point. Note that no inequalities between expressions are allowed.
 
-\mypar{Discrete Fourier Transform}
-Precisely define the transform so I understand it even if I have never
-seen it before.
+\mypar{Mechanics of Pentagon join}
+Before joining the two domains, a closure operation is performed on each one of them. 
+Its purpose is to enrich (in terms of precision) and exchange the available 
+information between the SUB and interval subdomains. The closure can be described in 3 steps:
+\begin{enumerate}
+\item Infer stricter interval bounds given some inequalities. 
+For example if \(a \in [2,8]\), \(b \in [0,6]\) and \(a < b\) one could deduce that \(a \in [2,5]\) and \(b \in [3,6]\).
+\item Infer inequalities given some intervals. 
+For example if \(a \in [2,5]\) and \(b \in [8,10]\) then one could safely infer that \(a < b\).
+\item Transitive closure of SUB domain. If \(a < b\) and \(b < c\) then \(a < c\).
+\end{enumerate}
+It must process the SUB domain until reaching a stable point. More applications of transitive closure would not change the data.
+Once closure is applied to both domains, the join is delegated to interval and SUB domains respectively. 
+They strictly adhere to the mantra of overapproximation -- the result should be sound in the 
+sense that no possible data assignment is missed. In case of intervals -- if \(a \in [2,5]\) in 
+the first domain and \(a \in [7,12]\) in the second, the join should be at least \([2,12]\). 
+Of course, further inflation of the result would not affect the soundness, but 
+the precision will suffer, therefore it is undesireable. 
+The same applies to SUB join -- if an inequality is present in only one of the domains, it should not be included in the result.
 
-\mypar{Fast Fourier Transforms}
-Explain the algorithm you use.
+\mypar{Cost analysis}
+From now on we assume that the SUB domain is encoded as n by n matrix of 0's and 1's 
+where n is the number of variables. 1 on ith row and jth column would designate 
+that ith variable is less than jth variable. Steps 1 and 2 of the closure 
+take \(O(n^2)\). Step 3 takes \(\Theta(n^3)\). It can be implemented using the Floyd-Warshall 
+algorithm [citation] with logical operations – 1 AND and 1 OR in the innermost 
+loop, thus the exact number of logical operations is \(2n^3\). We do not count 
+the operations needed for updating the loop indices. The interval join is 
+linear and the SUB join takes \(O(n^2)\). In conclusion, the costliest step is 
+the transitive closure of the SUB domain, therefore we concentrated our efforts 
+to optimize it, taking the Floyd-Warshall algorithm as a starting point. 
+Taking into account that in a single Pentagon join the transitive closure is 
+performed twice, the total cost of a Pentagon join is \(4n^3 + O(n^2)\) operations.
 
-\mypar{Cost Analysis}
-First define you cost measure (what you count) and then compute the
-cost. Ideally precisely, at least asymptotically. In the latter case you will need to instrument your code to count
-the operations so you can create a performance plot.
-
-Also state what is
-known about the complexity (asymptotic usually) 
-about your problem (including citations).
-
-Don't talk about "the complexity of the algorithm.'' It's incorrect,
-remember (Lecture 2)?
-
+\texttt{ include a pseudocode of Floyd-Warshall transitive closure?? }
 
 \section{Your Proposed Method}\label{sec:yourmethod}
 
-Now comes the ``beef'' of the paper, where you explain what you
-did. Again, organize it in paragraphs with titles. As in every section
-you start with a very brief overview of the section.
 
-For this class, explain all the optimizations you performed. This mean, you first very briefly
-explain the baseline implementation, then go through locality and other optimizations, and finally SSE (every project will be slightly different of course). Show or mention relevant analysis or assumptions. A few examples: 1) Profiling may lead you to optimize one part first; 2) bandwidth plus data transfer analysis may show that it is memory bound; 3) it may be too hard to implement the algorithm in full generality: make assumptions and state them (e.g., we assume $n$ is divisible by 4; or, we consider only one type of input image); 4) explain how certain data accesses have poor locality. Generally, any type of analysis adds value to your work.
+\mypar{Naive implementation - STL}
+We started with implementation of transitive closure using STL library. 
+It uses STL maps and sets to encode that variable x is less than every 
+variable in a given set. It is very concise in terms of memory 
+footprint -- it doesn't waste any space and supports runtime-varying 
+number of variables. It's major downside is that the STL maps and sets 
+use Red-Black trees, which generally do not exhibit any spacial locality. 
+The STL implementation proved to be much slower than the others and there 
+is no much to do about it, because, as the profiling investigation 
+confirmed, most of the time is spent in STL internals.
 
-As important as the final results is to show that you took a structured, organized approach to the optimization and that you explain why you did what you did.
+\mypar{Better naïve implementation – Dense matrix (DM)}
+For the DM implementation we switched to different representation of the 
+SUB domain – n by n matrix of 1's and 0's. On top of it runs the standart 
+Floyd-Warshall (FW) algorithm (with conditionals after the 2nd and 3rd loop). 
+Because of these conditionals the op count may be less than \(2n^3\). The DM 
+and STL implementation yielded the same results, thus we used them as a 
+basis for our verification framework. For the sake of comparison, the DM 
+proved to be much faster than the STL implementation, because the data is 
+packed in only one array and there is no extra auxiliary information stored (not the case with STL primitives).
 
-Mention and cite any external resources including library or other code.
+\mypar{Opportunities for improvement}
+The first step is to replace the conditionals from FW with logical operations. 
+This streamlines the computation and paves the way for further optimizations 
+(bit-packing and SIMD processing). The downside is that the op count now is exactly \(2n^3\). 
+After this step the FW superficially resembles the matrix-matrix multiplication (MMM), 
+for which there are widely known and efficient optimizations such as loop reordering, 
+tiling for cache/registers, loop unrolling. After a closer look to FW, it's evident 
+that the k loop should be the outermost one and I and j loops do not depend on each 
+other -- therefore they can be reordered.
 
-Good visuals or even brief code snippets to illustrate what you did are good. Pasting large amounts of code to fill the space is not good.
+It is known that putting i as the outermost loop is superior in MMM, but this is 
+not possible in our case, which explains why MMM-like performance is not achieveable. 
+We decided to keep the loop order k,i,j because for every k-step the matrix is traversed 
+in row-major order which coincides with the memory layout of the array (in C), 
+thus providing spacial locality. The algorithm also exhibits temporal locality 
+between successive iterations of k, but since k is the outermost loop and 
+inside it the whole matrix is traversed, we benefit from the temporal locality 
+only when the whole matrix fits in last-level cache (n is small). Because of 
+this fact, tiling for cache is crucial for achieving top performance in cases 
+when n is large. Because of the independence of I and j loops, we introduced 
+tiling on them (with configurable parameters) and observed tangible performance improvement.
+
+\mypar{Tiling for cache}
+The restriction on the k loop is imposed by data dependencies 
+(otherwise the algorithm would not compute the full transitive closure), 
+but as shown in [cite pueschel's paper], it can be relaxed through creating 
+a FW version (FWabc) which works on 3 mutually distinct matrices (two “source” and one “destination”) 
+rather than 1. In this special version the loops can be freely reordered 
+and tiled. In order to unleash the potential of this optimization, tiling 
+of the input matrix is needed. As next step of optimization process we 
+implemented tiled version of FW (FWT, with configurable parameters) following 
+the approach described in [cite pueschel's paper] and [older paper]. The 
+essence of it is to call FWabc whenever possible (3 different submatrices) 
+during the processing of smaller submatrices. We observed about 4x improvement 
+compared to naïve DM for large n (there is no big difference on small n, because 
+the workset of DM fits in the cache). After that we started experimenting with 
+different tile sizes – the only restriction is that n should be divisible by the 
+tile size. The workset of DM consists of the whole matrix, whereas the workset 
+of FWT is 3 tiles. We experimented with various workset sizes and found that 
+crossing the L1 cache threshold doesn't affect performance, but when the workset 
+gets bigger than the L2 cache, the performance is severely degraded. Based on our 
+benchmarks, we decided not to implement two levels of tiling, but rather 
+concentrate on loop unrolling and fine-tuning the innermost basic block.
+
+\mypar{Loop unrolling and scalar replacement}
+During the development of all variants of Pentagon join, we used configurable 
+compile-time unrolling parameters and compiler flags and pragmas to hint 
+the compiler which loops to unroll. The motivation for this decision is 
+the possibility to automatically find good values for the unrolling factors. 
+After finishing the bit-packed and SIMD implementations, we searched for 
+the “sweet spots” of unrolling parameters using scripts. Taking them as a 
+starting point and considering the number of available registers in an 
+x86-64 processor, we implemented hand-written SSA basic blocks using 
+scalar replacement to avoid pointer aliasing. We strived
+to utilize the ideas found in micro-MMM. However both in FW and FWabc 
+there is a low degree of register reuse and the results showed similar 
+or even a bit lower performance when using the optimized basic blocks.
+
 
 \section{Experimental Results}\label{sec:exp}
 
