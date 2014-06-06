@@ -23,6 +23,9 @@
 % ---------------
 \twoauthors{Erik Henriksson}{ETH Z\"urich\\Z\"urich, Switzerland}{Boris Peltekov}{ETH Z\"urich\\Z\"urich, Switzerland}
 
+\usepackage{color}
+\newcommand{\erik}[1]{\textcolor{blue}{[Erik: #1]}}
+
 % For example:
 % ------------
 %\address{School\\
@@ -49,42 +52,48 @@
 \maketitle
 %
 
-The hard page limit is 6 pages in this style. Do not reduce font size
-or use other tricks to squeeze. This pdf is formatted in the American letter format, so may look a bit strange when printed out.
+%The hard page limit is 6 pages in this style. Do not reduce font size
+%or use other tricks to squeeze. This pdf is formatted in the American letter format, so may look a bit strange when printed out.
 
 \begin{abstract}
-Describe in concise words what you do, why you do it (not necessarily
-in this order), and the main result.  The abstract has to be
-self-contained and readable for a person in the general area. You
-should write the abstract last.
+%Describe in concise words what you do, why you do it (not necessarily
+%in this order), and the main result.  The abstract has to be
+%self-contained and readable for a person in the general area. You
+%should write the abstract last.
+In this work we present an implementation of join on the Pentagon Abstract Domain. We explain the basics of the operation, the improvements which is possible of the naive implementation and conclude with our resulting SIMD vectorized version. Our work gives insight in the huge benefits one can get by optimizing data storage and utilizing the vector instructions which are available on modern Intel processors. We hope this work will be useful to improve the performance on future program analyzers.
 \end{abstract}
 
 \section{Introduction}\label{sec:intro}
+Many huge bugs in computer science history has been caused by accessing array out-of-bounds, especially in the form of buffer overflow errors. %http://crypto.stanford.edu/cs155/papers/cowan-vulnerability.pdf
+The domain of abstract intrepretation has therefore gotten attention from researchers and new domains as the octagon and polyhedra domain has been invented. These allows to also capture relations between variables, something which is very useful when you want to prove invariants about array accesses. The ''classical'' interval domain is an example of a domain which is not precise enough to prove this. The main property you have to sacrifice for preciseness is speed.
 
-Do not start the introduction with the abstract or a slightly modified
-version. It follows a possible structure of the introduction. 
-Note that the structure can be modified, but the
-content should be the same. Introduction and abstract should fill at most the first page, better less.
+\mypar{Motivation} Logonzzo et al. proposes a new domain, Pentagon Abstract Domain, which allows for capturing intervals and strict upper bounds between variables. We have looked into this domain to optimize the most critical operations on the Intel Core architecture. We have found the join operation or more specifically the transitive closure performed inside a join to be the most critical and has thus focused our work on that operation.
 
-\mypar{Motivation} The first task is to motivate what you do.  You can
-start general and zoom in one the specific problem you consider.  In
-the process you should have explained to the reader: what you are doing,
-why you are doing, why it is important (order is usually reversed).
+\mypar{Related work} There is a paper from Püschel et al. which explains how to do tiling and vectorization of the Floyd-Warshall algorithm, which also we use in the transitive closure. However, since this work is done on general graphs and our work is done on the special case where all edges have equal length, there is considerable amount of optimization. There is also an excellent manual from Intel, Intel® 64 and IA-32 Architectures Optimization Reference Manual, which has proven very useful for us. 
+%Do not start the introduction with the abstract or a slightly modified
+%version. It follows a possible structure of the introduction. 
+%Note that the structure can be modified, but the
+%content should be the same. Introduction and abstract should fill at most the first page, better less.
 
-For example, if my result is the fastest DFT implementation ever, one
-could roughly go as follows. First explain why the DFT is important
-(used everywhere with a few examples) and why performance matters (large datasets,
-realtime). Then explain that fast implementations are very hard and
-expensive to get (memory hierarchy, vector, parallel). 
-
-Now you state what you do in this paper. In our example: 
-presenting a DFT implementation that is
-faster for some sizes than all the other ones.
-
-\mypar{Related work} Next, you have to give a brief overview of
-related work. For a paper like this, anywhere between 2 and 8
-references. Briefly explain what they do. In the end contrast to what
-you do to make now precisely clear what your contribution is.
+%\mypar{Motivation} The first task is to motivate what you do.  You can
+%start general and zoom in one the specific problem you consider.  In
+%the process you should have explained to the reader: what you are doing,
+%why you are doing, why it is important (order is usually reversed).
+%
+%For example, if my result is the fastest DFT implementation ever, one
+%could roughly go as follows. First explain why the DFT is important
+%(used everywhere with a few examples) and why performance matters (large datasets,
+%realtime). Then explain that fast implementations are very hard and
+%expensive to get (memory hierarchy, vector, parallel). 
+%
+%Now you state what you do in this paper. In our example: 
+%presenting a DFT implementation that is
+%faster for some sizes than all the other ones.
+%
+%\mypar{Related work} Next, you have to give a brief overview of
+%related work. For a paper like this, anywhere between 2 and 8
+%references. Briefly explain what they do. In the end contrast to what
+%you do to make now precisely clear what your contribution is.
 
 \section{Background: Abstract interpretation and Transitive closure}\label{sec:background}
 
@@ -139,6 +148,8 @@ Taking into account that in a single Pentagon join the transitive closure is
 performed twice, the total cost of a Pentagon join is \(4n^3 + O(n^2)\) operations.
 
 \texttt{ include a pseudocode of Floyd-Warshall transitive closure?? }
+
+\erik{The cost analysis need to be more complete. We need to calculate our operations intensity and also take the other code in account. This will allow us to say if we are memory bound or not, something I said we are but we need to also prove it here.}
 
 \section{Your Proposed Method}\label{sec:yourmethod}
 
@@ -222,101 +233,106 @@ to utilize the ideas found in micro-MMM. However both in FW and FWabc
 there is a low degree of register reuse and the results showed similar 
 or even a bit lower performance when using the optimized basic blocks.
 
+\erik{TODO: Add bit-packing}
+
 
 \section{Experimental Results}\label{sec:exp}
+\erik{I will write this}
 
-Here you evaluate your work using experiments. You start again with a
-very short summary of the section. The typical structure follows.
-
-\mypar{Experimental setup} Specify the platform (processor, frequency, cache sizes)
-as well as the compiler, version, and flags used. I strongly recommend that you play with optimization flags and consider also icc for additional potential speedup.
-
-Then explain what input you used and what range of sizes. The idea is to give enough information so the experiments are reproducible by somebody else on his or her code.
-
-\mypar{Results}
-Next divide the experiments into classes, one paragraph for each. In the simplest case you have one plot that has the size on the x-axis and the performance on the y-axis. The plot will contain several lines, one for each relevant code version. Discuss the plot and extract the overall performance gain from baseline to best code. Also state the percentage of peak performance for the best code. Note that the peak may change depending on the situation. For example, if you only do additions it would be 12 Gflop/s
-on one core with 3 Ghz and SSE and single precision floating point.
-
-Do not put two performance lines into the same plot if the operations count changed significantly (that's apples and oranges). In that case first perform the optimizations that reduce op count and report the runtime gain in a plot. Then continue to optimize the best version and show performance plots.
-
-{\bf You should}
-\begin{itemize}
-\item Follow the guide to benchmarking presented in class, in particular
-\item very readable, attractive plots (do 1 column, not 2 column plots
-for this class), proper readable font size. An example is below (of course you can have a different style),
-\item every plot answers a question, which you pose and extract the
-answer from the plot in its discussion
-\end{itemize}
-Every plot should be discussed (what does it show, which statements do
-you extract).
+%Here you evaluate your work using experiments. You start again with a
+%very short summary of the section. The typical structure follows.
+%
+%\mypar{Experimental setup} Specify the platform (processor, frequency, cache sizes)
+%as well as the compiler, version, and flags used. I strongly recommend that you play with optimization flags and consider also icc for additional potential speedup.
+%
+%Then explain what input you used and what range of sizes. The idea is to give enough information so the experiments are reproducible by somebody else on his or her code.
+%
+%\mypar{Results}
+%Next divide the experiments into classes, one paragraph for each. In the simplest case you have one plot that has the size on the x-axis and the performance on the y-axis. The plot will contain several lines, one for each relevant code version. Discuss the plot and extract the overall performance gain from baseline to best code. Also state the percentage of peak performance for the best code. Note that the peak may change depending on the situation. For example, if you only do additions it would be 12 Gflop/s
+%on one core with 3 Ghz and SSE and single precision floating point.
+%
+%Do not put two performance lines into the same plot if the operations count changed significantly (that's apples and oranges). In that case first perform the optimizations that reduce op count and report the runtime gain in a plot. Then continue to optimize the best version and show performance plots.
+%
+%{\bf You should}
+%\begin{itemize}
+%\item Follow the guide to benchmarking presented in class, in particular
+%\item very readable, attractive plots (do 1 column, not 2 column plots
+%for this class), proper readable font size. An example is below (of course you can have a different style),
+%\item every plot answers a question, which you pose and extract the
+%answer from the plot in its discussion
+%\end{itemize}
+%Every plot should be discussed (what does it show, which statements do
+%you extract).
 
 \section{Conclusions}
+\erik{Boris will write this}
 
-Here you need to briefly summarize what you did and why this is
-important. {\em Do not take the abstract} and put it in the past
-tense. Remember, now the reader has (hopefully) read the paper, so it
-is a very different situation from the abstract. Try to highlight
-important results and say the things you really want to get across
-(e.g., the results show that we are within 2x of the optimal performance ... 
-Even though we only considered the DFT, our optimization
-techniques should be also applicable ....) You can also formulate next
-steps if you want. Be brief.
+%Here you need to briefly summarize what you did and why this is
+%important. {\em Do not take the abstract} and put it in the past
+%tense. Remember, now the reader has (hopefully) read the paper, so it
+%is a very different situation from the abstract. Try to highlight
+%important results and say the things you really want to get across
+%(e.g., the results show that we are within 2x of the optimal performance ... 
+%Even though we only considered the DFT, our optimization
+%techniques should be also applicable ....) You can also formulate next
+%steps if you want. Be brief.
 
-\section{Further comments}
-
-Here we provide some further tips.
-
-\mypar{Further general guidelines}
-
-\begin{itemize}
-\item For short papers, to save space, I use paragraph titles instead of
-subsections, as shown in the introduction.
-
-\item It is generally a good idea to break sections into such smaller
-units for readability and since it helps you to (visually) structure the story.
-
-\item The above section titles should be adapted to more precisely
-reflect what you do.
-
-\item Each section should be started with a very
-short summary of what the reader can expect in this section. Nothing
-more awkward as when the story starts and one does not know what the
-direction is or the goal.
-
-\item Make sure you define every acronym you use, no matter how
-convinced you are the reader knows it.
-
-\item Always spell-check before you submit (to me in this case).
-
-\item Be picky. When writing a paper you should always strive for very
-high quality. Many people may read it and the quality makes a big difference.
-In this class, the quality is part of the grade.
-
-% \item Books helping you to write better: \cite{Higham:98} and \cite{Strunk:00}.
-
-\item Conversion to pdf (latex users only): 
-
-dvips -o conference.ps -t letter -Ppdf -G0 conference.dvi
-
-and then
-
-ps2pdf conference.ps
-\end{itemize}
-
-\mypar{Graphics} For plots that are not images {\em never} generate (even as intermediate step)
-jpeg, gif, bmp, tif. Use eps, which means encapsulate postscript, os pdf. This way it is
-scalable since it is a vector graphic description of your graph. E.g.,
-from Matlab, you can export to eps or pdf.
-
-Here is an example of how to get a plot into latex
-(Fig.~\ref{fftperf}). Note that the text should not be any smaller than shown.
-
-\begin{figure}\centering
-  \includegraphics[scale=0.33]{dft-performance.eps}
-  \caption{Performance of four single precision implementations of the
-  discrete Fourier transform. The operations count is roughly the
-  same. {\em The labels in this plot are too small.}\label{fftperf}}
-\end{figure}
+%\section{Further comments}
+%
+%Here we provide some further tips.
+%
+%\mypar{Further general guidelines}
+%
+%\begin{itemize}
+%\item For short papers, to save space, I use paragraph titles instead of
+%subsections, as shown in the introduction.
+%
+%\item It is generally a good idea to break sections into such smaller
+%units for readability and since it helps you to (visually) structure the story.
+%
+%\item The above section titles should be adapted to more precisely
+%reflect what you do.
+%
+%\item Each section should be started with a very
+%short summary of what the reader can expect in this section. Nothing
+%more awkward as when the story starts and one does not know what the
+%direction is or the goal.
+%
+%\item Make sure you define every acronym you use, no matter how
+%convinced you are the reader knows it.
+%
+%\item Always spell-check before you submit (to me in this case).
+%
+%\item Be picky. When writing a paper you should always strive for very
+%high quality. Many people may read it and the quality makes a big difference.
+%In this class, the quality is part of the grade.
+%
+%\item Books helping you to write better: \cite{Higham:98} and \cite{Strunk:00}.
+%
+%\item Conversion to pdf (latex users only): 
+%
+%dvips -o conference.ps -t letter -Ppdf -G0 conference.dvi
+%
+%and then
+%
+%ps2pdf conference.ps
+%\end{itemize}
+%
+%\mypar{Graphics} For plots that are not images {\em never} generate (even as intermediate step)
+%jpeg, gif, bmp, tif. Use eps, which means encapsulate postscript, os pdf. This way it is
+%scalable since it is a vector graphic description of your graph. E.g.,
+%from Matlab, you can export to eps or pdf.
+%
+%Here is an example of how to get a plot into latex
+%(Fig.~\ref{fftperf}). Note that the text should not be any smaller than shown.
+%
+%\begin{figure}\centering
+%  \includegraphics[scale=0.33]{dft-performance.eps}
+%  \caption{Performance of four single precision implementations of the
+%  discrete Fourier transform. The operations count is roughly the
+%  same. {\em The labels in this plot are too small.}\label{fftperf}}
+%\end{figure}
+%
 
 
 
