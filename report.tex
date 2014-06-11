@@ -65,11 +65,13 @@ In this work we present an implementation of join on the Pentagon Abstract Domai
 
 \section{Introduction}\label{sec:intro}
 Many huge bugs in computer science history has been caused by accessing array out-of-bounds, especially in the form of buffer overflow errors. %http://crypto.stanford.edu/cs155/papers/cowan-vulnerability.pdf
-The domain of abstract intrepretation has therefore gotten attention from researchers and new domains as the octagon and polyhedra domain has been invented. These allows to also capture relations between variables, something which is very useful when you want to prove invariants about array accesses. The ''classical'' interval domain is an example of a domain which is not precise enough to prove this. The main property you have to sacrifice for preciseness is speed.
+The domain of abstract intrepretation has therefore gotten attention from researchers and new domains as the octagon and polyhedra domain has been invented. These allows to also capture relations between variables, something which is very useful when you want to prove invariants about array accesses. The ``classical'' interval domain is an example of a domain which is not precise enough to prove this. The main property you have to sacrifice for preciseness is speed.
+
+\erik{TODO: Add Intel's manual to the list of citations}
 
 \mypar{Motivation} Logonzzo et al. proposes a new domain, Pentagon Abstract Domain, which allows for capturing intervals and strict upper bounds between variables. We have looked into this domain to optimize the most critical operations on the Intel Core architecture. We have found the join operation or more specifically the transitive closure performed inside a join to be the most critical and has thus focused our work on that operation.
 
-\mypar{Related work} There is a paper from Püschel et al. which explains how to do tiling and vectorization of the Floyd-Warshall algorithm, which also we use in the transitive closure. However, since this work is done on general graphs and our work is done on the special case where all edges have equal length, there is considerable amount of optimization. There is also an excellent manual from Intel, Intel® 64 and IA-32 Architectures Optimization Reference Manual, which has proven very useful for us. 
+\mypar{Related work} There is a paper from P\"uschel et al. which explains how to do tiling and vectorization of the Floyd-Warshall algorithm, which also we use in the transitive closure. However, since this work is done on general graphs and our work is done on the special case where all edges have equal length, there is considerable amount of optimization. There is also an excellent manual from Intel, Intel® 64 and IA-32 Architectures Optimization Reference Manual, which has proven very useful for us. 
 %Do not start the introduction with the abstract or a slightly modified
 %version. It follows a possible structure of the introduction. 
 %Note that the structure can be modified, but the
@@ -138,8 +140,8 @@ From now on we assume that the SUB domain is encoded as n by n matrix of 0's and
 where n is the number of variables. 1 on ith row and jth column would designate 
 that ith variable is less than jth variable. Steps 1 and 2 of the closure 
 take \(O(n^2)\). Step 3 takes \(\Theta(n^3)\). It can be implemented using the Floyd-Warshall 
-algorithm \cite{Floyd1962} with logical operations – 1 AND and 1 OR in the innermost 
-loop, thus the exact number of logical operations is \(2n^3\). We do not count 
+algorithm \cite{Floyd1962} augmented with logical operations – 1 AND and 1 OR in the innermost 
+loop, thus the exact number of logical operations is \(2n^3\). We do not include in the cost measure
 the operations needed for updating the loop indices. The interval join is 
 linear and the SUB join takes \(O(n^2)\). In conclusion, the costliest step is 
 the transitive closure of the SUB domain, therefore we concentrated our efforts 
@@ -148,8 +150,6 @@ Taking into account that in a single Pentagon join the transitive closure is
 performed twice, the total cost of a Pentagon join is \(4n^3 + O(n^2)\) operations.
 
 \texttt{ include a pseudocode of Floyd-Warshall transitive closure?? }
-
-\erik{The cost analysis need to be more complete. We need to calculate our operations intensity and also take the other code in account. This will allow us to say if we are memory bound or not, something I said we are but we need to also prove it here.}
 
 \section{Your Proposed Method}\label{sec:yourmethod}
 
@@ -207,9 +207,9 @@ and tiled. In order to unleash the potential of this optimization, tiling
 of the input matrix is needed. As next step of optimization process we 
 implemented tiled version of FW (FWT, with configurable parameters) following 
 the approach described in \cite{Pueschel2006}. The 
-essence of it is to call FWabc whenever possible (3 different submatrices) 
+essence of it is to call FWabc whenever possible (when 3 distinct submatrices are encountered) 
 during the processing of smaller submatrices. We observed about 4x improvement 
-compared to naïve DM for large n (there is no big difference on small n, because 
+compared to naïve DM for large n (there is no big difference for small n, because 
 the workset of DM fits in the cache). After that we started experimenting with 
 different tile sizes – the only restriction is that n should be divisible by the 
 tile size. The workset of DM consists of the whole matrix, whereas the workset 
@@ -225,19 +225,51 @@ compile-time unrolling parameters and compiler flags and pragmas to hint
 the compiler which loops to unroll. The motivation for this decision is 
 the possibility to automatically find good values for the unrolling factors. 
 After finishing the bit-packed and SIMD implementations, we searched for 
-the “sweet spots” of unrolling parameters using scripts. Taking them as a 
-starting point and considering the number of available registers in an 
-x86-64 processor, we implemented hand-written SSA basic blocks using 
-scalar replacement to avoid pointer aliasing. We strived
-to utilize the ideas found in micro-MMM. However both in FW and FWabc 
-there is a low degree of register reuse and the results showed similar 
-or even a bit lower performance when using the optimized basic blocks.
+the ``sweet spots'' of unrolling parameters using scripts. Taking them as a 
+reference point and considering the number of available registers and the architecture of the Intel Core 2 processor, 
+we implemented hand-written single static assignment (SSA) basic blocks using 
+scalar replacement to avoid pointer aliasing. In principle some of the code (namely FWabc) 
+operates on distinct arrays, so we used this fact during the development of the basic blocks. 
+We strived to utilize the ideas found in micro-MMM (register blocking and reordering 
+for instruction level parallelism), but there is a lower degree of register reuse in Floyd-Warshall than in matrix-matrix multiplication.
+% However both in FW and FWabc there is a low degree of register reuse and the results showed similar or even a bit lower performance when using the optimized basic blocks.
 
-\erik{TODO: Add bit-packing}
+\erik{TODO: Add bit-packing and SIMD -- Make sure to explain the details about SSE register expanding and loop order}
 
+\subsection{Theoretical performance analysis}
+The objective of the theoretical analysis is to approximate the upper bound on performance of our SIMD implementation
+achievable on a particular piece of hardware and to pin-point the bottlenecks. Now we will examine our 
+SIMD implementation with all previously described optimizations applied. 
+The loop order inside the tiles is k,i,j -- so no distinction between FW and FWabc is needed in this regard. 
+There are three major places where a bottleneck can occur:
+\begin{enumerate}
+\item CPU's arithmetic resources - number of ALU's, distibution of the operations over the execution ports etc. 
+\item CPU-cache bandwidth (and sometimes latency)
+\item Cache-RAM bandwidth
+\end{enumerate}
+
+In order to update a single 128-bit chunk of data C[i,j:j+128] two logical SSE operations are needed -- 1 AND and 1 OR. Despite that the OR depends on the AND, 
+high throughput can still be achieved, because these operations for different j and fixed k,i can be done in parallel. So given the unrolling on j and hardware capable of
+out-of-order execution, this dependency would not be an issue. Our test hardware has 2 (Core 2 Duo) or 3 (Ivy Bridge) execution ports capable of processing a SSE logical operation 
+each cycle. Considering only this, the peak performance should be 128 or 192 ops per cycle respectively. However there are other obstacles which prevent achieving this. 
+
+Now lets focus on the memory behaviour of the algorithm. Inside the i loop one particular bit (A[i,k]) has to be extracted and its value spread along a SSE register. Then this value is 
+used during the whole j loop. Therefore, assuming enough work done in the j loop, the effect of this memory load is negligible. 
+However inside the j loop there are 2 SSE loads and 1 SSE store that need to be done -- this is the exact limit of the Sandy bridge architecture. 
+We could not evade the stream-processing nature of the algorithm inside the j loop -- two 128-bit values are fetched, 2 SSE operations are applied and then the result is written back. 
+Despite that the distinct iterations of j are completely independent both in terms of memory usage and arithmetic operations, the 
+bottleneck is the L1 cache bandwidth. No further data or register reuse is possible given our implementation layout. The positive side of it is that the data is accessed 
+linearly row-wise and would not cause any unnecessary cache misses. 
+% We also experimented with i,j,k loop layout inside a tile, but it exhibited ...
+
+Its known that the memory-cache bandwidth is much lower than CPU-cache one, however the FW algorithm has operational intensity of \(O(n)\). 
+Therefore after loading the workset (3 tiles) into the cache, the performance depends only on CPU arithmetic resources and CPU-cache bandwidth. 
+We make sure that the workset fits at least in the last level cache, so the slow RAM-cache bus will not impede performance. As a result of this reasoning we conclude that no more than 
+128 ops per cycle can be sustained on our test hardware. Not suprisingly, the results confirmed that -- about 110 ops per cycle were achieved in our benchmarks. We attribute the performance gap to the fact that 
+the execution ports for the logical SSE operations are shared with the ALUs responsible for incrementing the indices and calculating the memory addresses.
 
 \section{Experimental Results}\label{sec:exp}
-\erik{I will write this}
+\erik{Erik will write this ; Also include proper explanation of the results}
 
 %Here you evaluate your work using experiments. You start again with a
 %very short summary of the section. The typical structure follows.
