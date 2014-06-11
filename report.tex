@@ -165,7 +165,7 @@ The STL implementation proved to be much slower than the others and there
 is no much to do about it, because, as the profiling investigation 
 confirmed, most of the time is spent in STL internals.
 
-\subsection{Better naïve implementation – Dense matrix (DM)}
+\subsection{Better na\"ive implementation – Dense matrix (DM)}
 For the DM implementation we switched to different representation of the 
 SUB domain – n by n matrix of 1's and 0's. On top of it runs the standart 
 Floyd-Warshall (FW) algorithm (with conditionals after the 2nd and 3rd loop). 
@@ -270,6 +270,7 @@ the execution ports for the logical SSE operations are shared with the ALUs resp
 
 \section{Experimental Results}\label{sec:exp}
 \erik{Erik will write this ; Also include proper explanation of the results}
+\erik{Maybe it's a good idea to share a link to github or directly give it to Pueschel}
 
 %Here you evaluate your work using experiments. You start again with a
 %very short summary of the section. The typical structure follows.
@@ -296,8 +297,13 @@ the execution ports for the logical SSE operations are shared with the ALUs resp
 %Every plot should be discussed (what does it show, which statements do
 %you extract).
 
-\section{Conclusions}
-\erik{Boris will write this}
+\section{Conclusion}
+Abstract interpretation in conjuction with Pentagon domain has proven itself as an efficient tool for
+capturing many common programming errors. But in order to be practical, the most costly operations in the domain
+have to be scalable. In this paper we used various techniques for optimizing the ``join'' operation. As a result the optimized
+implementation is within 60\% of the theoretical maximum on our test hardware and is over 150x faster than 
+the straighforward na\"ive approach (DM implementation). Some of the optimizations are also applicable in other areas in which
+fast transitive closure is needed.
 
 %Here you need to briefly summarize what you did and why this is
 %important. {\em Do not take the abstract} and put it in the past
