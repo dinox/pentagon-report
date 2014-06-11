@@ -251,21 +251,22 @@ There are three major places where a bottleneck can occur:
 In order to update a single 128-bit chunk of data C[i,j:j+128] two logical SSE operations are needed -- 1 AND and 1 OR. Despite that the OR depends on the AND, 
 high throughput can still be achieved, because these operations for different j and fixed k,i can be done in parallel. So given the unrolling on j and hardware capable of
 out-of-order execution, this dependency would not be an issue. Our test hardware has 2 (Core 2 Duo) or 3 (Ivy Bridge) execution ports capable of processing a SSE logical operation 
-each cycle. Considering only this, the peak performance should be 128 or 192 ops per cycle respectively. However there are other obstacles which prevent achieving this. 
+each cycle. Considering only this, the peak performance should be 256 or 384 ops per cycle respectively. However there are other obstacles which prevent achieving this. 
 
 Now lets focus on the memory behaviour of the algorithm. Inside the i loop one particular bit (A[i,k]) has to be extracted and its value spread along a SSE register. Then this value is 
 used during the whole j loop. Therefore, assuming enough work done in the j loop, the effect of this memory load is negligible. 
-However inside the j loop there are 2 SSE loads and 1 SSE store that need to be done -- this is the exact limit of the Sandy Bridge L1 cache. 
-We could not evade the stream-processing nature of the algorithm inside the j loop -- two 128-bit values are fetched, 2 SSE operations are applied and then the result is written back. 
+Inside the j loop there are 2 SSE loads and 1 SSE store that need to be done. However the Sandy Bridge has only 1 load and 1 store port, so it is capable of
+only 1 load and 1 store per cycle. Consequently this limits the performance to 128 ops per cycle. We tried to alternate the dataflow of the algorithm, but we could not
+evade the stream-processing nature of the inside the j loop -- two 128-bit values are fetched, 2 SSE operations are applied and then the result is written back. 
 Despite that the distinct iterations of j are completely independent both in terms of memory usage and arithmetic operations, the 
 bottleneck is the L1 cache bandwidth. No further data or register reuse is possible given our implementation layout. The positive side of it is that the data is accessed 
-linearly row-wise and would not cause any unnecessary cache misses. 
+linearly row-wise and would not cause any unnecessary cache misses.
 % We also experimented with i,j,k loop layout inside a tile, but it exhibited ...
 
 Its known that the memory-cache bandwidth is much lower than CPU-cache one, however the FW algorithm has operational intensity of \(O(n)\). 
 Therefore after loading the workset (3 tiles) into the cache, the performance depends only on CPU arithmetic resources and CPU-cache bandwidth. 
 We make sure that the workset fits at least in the last level cache, so the slow RAM-cache bus will not impede performance. As a result of this reasoning we conclude that no more than 
-128 ops per cycle can be sustained on our test hardware. Not suprisingly, the results confirmed that -- about 110 ops per cycle were achieved in our benchmarks. We attribute the performance gap to the fact that 
+128 ops per cycle can be sustained on our test hardware. Not suprisingly, the results confirm that -- about 110 ops per cycle were achieved in our benchmarks. We attribute the performance gap to the fact that 
 the execution ports for the logical SSE operations are shared with the ALUs responsible for incrementing the indices and calculating the memory addresses.
 
 \section{Experimental Results}\label{sec:exp}
@@ -301,7 +302,7 @@ the execution ports for the logical SSE operations are shared with the ALUs resp
 Abstract interpretation in conjuction with Pentagon domain has proven itself as an efficient tool for
 capturing many common programming errors. But in order to be practical, the most costly operations in the domain
 have to be scalable. In this paper we used various techniques for optimizing the ``join'' operation. As a result the optimized
-implementation is within 60\% of the theoretical maximum on our test hardware and is over 150x faster than 
+implementation is within 35\% of the theoretical maximum on our test hardware and is over 150x faster than 
 the straighforward na\"ive approach (DM implementation). Some of the optimizations are also applicable in other areas in which
 fast transitive closure is needed.
 
