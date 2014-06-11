@@ -103,12 +103,12 @@ In the field of Abstract Interpretation the ``join'' operation between two abstr
 domains is one of the most commonly used, because it is responsible for correctly 
 merging the inferred information coming from two different program flow paths. 
 Since most programs heavily rely on branching, the ``join'' operation must be perfected 
-both in terms of speed and correctness – it has to preserve as much information as possible, 
+both in terms of speed and correctness -- it has to preserve as much information as possible, 
 but also overapproximate the information coming from the merging paths. 
 Note that there is an instantiation of the abstract domain at every program point 
-and information is exchanged between them – the join operation is one example of 
+and information is exchanged between them -- the join operation is one example of 
 such exchange. More specifically, every Pentagon domain \cite{Logozzo2008} consists of two 
-subdomains – interval and strict upper bounds (SUB). The interval subdomain 
+subdomains -- interval and strict upper bounds (SUB). The interval subdomain 
 contains a mapping from a variable to an interval of possible values, which 
 the variable may take. In case when no bounds can be inferred, the variable 
 is mapped to an artificial interval called TOP. The SUB domain is a set of 
@@ -151,7 +151,7 @@ performed twice, the total cost of a Pentagon join is \(4n^3 + O(n^2)\) operatio
 
 \texttt{ include a pseudocode of Floyd-Warshall transitive closure?? }
 
-\section{Your Proposed Method}\label{sec:yourmethod}
+\section{Optimized Transitive closure}\label{sec:yourmethod}
 
 
 \subsection{Naive implementation - STL}
@@ -255,7 +255,7 @@ each cycle. Considering only this, the peak performance should be 128 or 192 ops
 
 Now lets focus on the memory behaviour of the algorithm. Inside the i loop one particular bit (A[i,k]) has to be extracted and its value spread along a SSE register. Then this value is 
 used during the whole j loop. Therefore, assuming enough work done in the j loop, the effect of this memory load is negligible. 
-However inside the j loop there are 2 SSE loads and 1 SSE store that need to be done -- this is the exact limit of the Sandy bridge architecture. 
+However inside the j loop there are 2 SSE loads and 1 SSE store that need to be done -- this is the exact limit of the Sandy Bridge L1 cache. 
 We could not evade the stream-processing nature of the algorithm inside the j loop -- two 128-bit values are fetched, 2 SSE operations are applied and then the result is written back. 
 Despite that the distinct iterations of j are completely independent both in terms of memory usage and arithmetic operations, the 
 bottleneck is the L1 cache bandwidth. No further data or register reuse is possible given our implementation layout. The positive side of it is that the data is accessed 
