@@ -234,7 +234,9 @@ We strived to utilize the ideas found in micro-MMM (register blocking and reorde
 for instruction level parallelism), but there is a lower degree of register reuse in Floyd-Warshall than in matrix-matrix multiplication.
 % However both in FW and FWabc there is a low degree of register reuse and the results showed similar or even a bit lower performance when using the optimized basic blocks.
 
-\erik{TODO: Add bit-packing and SIMD -- Make sure to explain the details about SSE register expanding and loop order}
+%\erik{TODO: Add bit-packing and SIMD -- Make sure to explain the details about SSE register expanding and loop order}
+\subsection{Bitpacking}
+An important step is to notice that we use boolean matrices and therefore can make use of bit-packing to reduce both memory footprint and increase the number of ops/cycle the processor can perform. The main idea is to represent every element by a bit instead of an integer. We also had to convert some of the binary operations to use the bit-wise variant. This is of course also possible in a SIMD implementation using the SIMD variants of the regular bit-wise operations.
 
 \subsection{Theoretical performance analysis}
 The objective of the theoretical analysis is to approximate the upper bound on performance of our SIMD implementation
@@ -270,8 +272,40 @@ We make sure that the workset fits at least in the last level cache, so the slow
 the execution ports for the logical SSE operations are shared with the ALUs responsible for incrementing the indices and calculating the memory addresses.
 
 \section{Experimental Results}\label{sec:exp}
-\erik{Erik will write this ; Also include proper explanation of the results}
-\erik{Maybe it's a good idea to share a link to github or directly give it to Pueschel}
+%\erik{Erik will write this ; Also include proper explanation of the results}
+%\erik{Maybe it's a good idea to share a link to github or directly give it to Pueschel}
+We have implemented four different variants of the algorithm; as described in the paper using STL maps, using dense matrix, using bit-packed matrix and using SIMD bit-packed matrix. 
+
+\begin{figure*}
+  \centering
+  \includegraphics[width=0.85\textwidth]{graphs/Domain_size.png}
+  \label{fig:benchmarking-results}
+  \caption{Comparison of the four different implementations for different domain sizes}
+\end{figure*}
+
+\begin{figure*}
+  \centering
+  \includegraphics[width=0.85\textwidth]{graphs/UALL.png}
+  \label{fig:benchmarking-results}
+  \caption{Comparison of bit-packed 32bit integer to bitpacked 128bit SIMD vector for different block sizes of the register blocking}
+\end{figure*}
+
+\begin{figure*}
+  \centering
+  \includegraphics[width=0.85\textwidth]{graphs/Cache_size.png}
+  \label{fig:benchmarking-results}
+  \caption{Comparison of bit-packed 32bit integer to bitpacked 128bit SIMD vector for different cache block sizes}
+\end{figure*}
+
+\begin{figure*}
+  \centering
+  \includegraphics[width=0.85\textwidth]{graphs/Unrolling.png}
+  \label{fig:benchmarking-results}
+  \caption{Comparison of 128-bit SIMD for different unroll factors. Note: The yellow non-unrolled version is partly unrolled by GCC}
+\end{figure*}
+
+
+Our algorithm was implemented using C++ and we have benchmarked it to see the difference between the algorithm as described in the paper and our different implementations. 
 
 %Here you evaluate your work using experiments. You start again with a
 %very short summary of the section. The typical structure follows.
