@@ -69,6 +69,8 @@ The domain of abstract intrepretation has therefore gotten attention from resear
 
 \erik{TODO: Add Intel's manual to the list of citations}
 
+\erik{Replace subsections with mypars if you need extra space}
+
 \mypar{Motivation} Logonzzo et al. proposes a new domain, Pentagon Abstract Domain, which allows for capturing intervals and strict upper bounds between variables. We have looked into this domain to optimize the most critical operations on the Intel Core architecture. We have found the join operation or more specifically the transitive closure performed inside a join to be the most critical and has thus focused our work on that operation.
 
 \mypar{Related work} There is a paper from P\"uschel et al. which explains how to do tiling and vectorization of the Floyd-Warshall algorithm, which also we use in the transitive closure. However, since this work is done on general graphs and our work is done on the special case where all edges have equal length, there is considerable amount of optimization. There is also an excellent manual from Intel, Intel® 64 and IA-32 Architectures Optimization Reference Manual, which has proven very useful for us. 
@@ -149,7 +151,6 @@ to optimize it, taking the Floyd-Warshall algorithm as a starting point.
 Taking into account that in a single Pentagon join the transitive closure is 
 performed twice, the total cost of a Pentagon join is \(4n^3 + O(n^2)\) operations.
 
-\texttt{ include a pseudocode of Floyd-Warshall transitive closure?? }
 
 \section{Optimized Transitive closure}\label{sec:yourmethod}
 
@@ -159,7 +160,7 @@ We started with implementation of transitive closure using STL library.
 It uses STL maps and sets to encode that variable x is less than every 
 variable in a given set. It is very concise in terms of memory 
 footprint -- it doesn't waste any space and supports runtime-varying 
-number of variables. It's major downside is that the STL maps and sets 
+number of variables, but a major downside is that the STL maps and sets 
 use Red-Black trees, which generally do not exhibit any spacial locality. 
 The STL implementation proved to be much slower than the others and there 
 is no much to do about it, because, as the profiling investigation 
@@ -177,24 +178,22 @@ packed in only one array and there is no extra auxiliary information stored (not
 
 \subsection{Opportunities for improvement}
 The first step is to replace the conditionals from FW with logical operations. 
-This streamlines the computation and paves the way for further optimizations 
+This streamlines computation and paves the way for further optimizations 
 (bit-packing and SIMD processing). The downside is that the op count now is exactly \(2n^3\). 
 After this step the FW superficially resembles the matrix-matrix multiplication (MMM), 
 for which there are widely known and efficient optimizations such as loop reordering, 
 tiling for cache/registers, loop unrolling. After a closer look to FW, it's evident 
-that the k loop should be the outermost one and I and j loops do not depend on each 
+that the k loop should be the outermost one and i and j loops do not depend on each 
 other -- therefore they can be reordered.
 
 It is known that putting i as the outermost loop is superior in MMM, but this is 
 not possible in our case, which explains why MMM-like performance is not achieveable. 
-We decided to keep the loop order k,i,j because for every k-step the matrix is traversed 
-in row-major order which coincides with the memory layout of the array (in C), 
-thus providing spacial locality. The algorithm also exhibits temporal locality 
-between successive iterations of k, but since k is the outermost loop and 
-inside it the whole matrix is traversed, we benefit from the temporal locality 
-only when the whole matrix fits in last-level cache (n is small). Because of 
+The algorithm with k,i,j loop order shows spacial locality, because for every k-step the matrix is traversed 
+in row-major order which coincides with the memory layout of the array (in C).
+Between successive iterations of k temporal locality is exhibited, but since k is the outermost loop and 
+inside it the whole matrix is traversed, there is a benefit only when the whole matrix fits in last-level cache (n is small). Because of 
 this fact, tiling for cache is crucial for achieving top performance in cases 
-when n is large. Because of the independence of I and j loops, we introduced 
+when n is large. Due to the independence of i and j loops, we introduced 
 tiling on them (with configurable parameters) and observed tangible performance improvement.
 
 \subsection{Tiling for cache}
@@ -209,15 +208,27 @@ implemented tiled version of FW (FWT, with configurable parameters) following
 the approach described in \cite{Pueschel2006}. The 
 essence of it is to call FWabc whenever possible (when 3 distinct submatrices are encountered) 
 during the processing of smaller submatrices. We observed about 4x improvement 
-compared to naïve DM for large n (there is no big difference for small n, because 
+compared to na\"ive DM for large n (there is no big difference for small n, because 
 the workset of DM fits in the cache). After that we started experimenting with 
-different tile sizes – the only restriction is that n should be divisible by the 
+different tile sizes -- the only restriction is that n should be divisible by the 
 tile size. The workset of DM consists of the whole matrix, whereas the workset 
 of FWT is 3 tiles. We experimented with various workset sizes and found that 
 crossing the L1 cache threshold doesn't affect performance, but when the workset 
 gets bigger than the L2 cache, the performance is severely degraded. Based on our 
 benchmarks, we decided not to implement two levels of tiling, but rather 
 concentrate on loop unrolling and fine-tuning the innermost basic block.
+
+Now we examine the operational intensity of DM and FWT to see if they are memory bound.
+We measure the memory traffic by approximating the number of cache misses. Let $c$ be the cache size, $s$ - cache block size (64 bytes in case of Core 2), 
+$b$ - block size (in FWT) and $M=\frac{n}{b}$ is the number of tiles in one row.
+From now on we assume that $n>>c$. In DM, if k and i are fixed, there will be $\frac{2n}{s}+1$ misses. In total there will be $\frac{2n^3}{s}+n^2$ misses.
+The number of ops is $2n^3$, so the operational intensity is $I(n) = \frac{2n^3}{2n^3+sn^2} = \frac{2n}{2n+s} \in O(n)$.
+In FWabc, if $c>3b^2$(i.e. the workset fits in cache), the operational intensity will be $\frac{2n^3}{3b^2}$, because the data will be loaded just once from memory.
+Following the scheme of FWT in \cite{Pueschel2006}, we count the number of tiles that need to be loaded during the computation and use it to calculate the cache misses and
+the operational intensity. If k is fixed, the first three phases load $2(M-1)+1$ tiles and phase 4 loads $(M-1)(2M-1)$ tiles. Loading of each tile costs $\frac{b^2}{s}$ cache
+misses. In total there will be $(2M^3-M^2)\frac{b^2}{s}$ misses and after substitution of $M=\frac{n}{b}$ the result is $\frac{2n^3}{bs}-\frac{n^2}{s}$ misses. Note that the op count
+in FWT is still $2n^3$. So if we choose $b=\sqrt{\frac{c}{3}}$, the amount of bytes transferred will be at most $\frac{2\sqrt{3}n^3}{\sqrt{c}}$ bytes. The gain is approximately 
+$2\sqrt{c}$ and the operational intensity is $O(\sqrt{c})$. This explains the performance advantage of the tiled version and also confirms that it is not memory bound.
 
 \subsection{Loop unrolling and scalar replacement}
 During the development of all variants of Pentagon join, we used configurable 
@@ -265,9 +276,7 @@ bottleneck is the L1 cache bandwidth. No further data or register reuse is possi
 linearly row-wise and would not cause any unnecessary cache misses.
 % We also experimented with i,j,k loop layout inside a tile, but it exhibited ...
 
-Its known that the memory-cache bandwidth is much lower than CPU-cache one, however the FW algorithm has operational intensity of \(O(n)\). 
-Therefore after loading the workset (3 tiles) into the cache, the performance depends only on CPU arithmetic resources and CPU-cache bandwidth. 
-We make sure that the workset fits at least in the last level cache, so the slow RAM-cache bus will not impede performance. As a result of this reasoning we conclude that no more than 
+As discussed in section 3.4, the tiled FW is not memory bound and the slow RAM-cache bus will not impede its performance. As a result of the shown reasoning we conclude that no more than 
 128 ops per cycle can be sustained on our test hardware. Not suprisingly, the results confirm that -- about 110 ops per cycle were achieved in our benchmarks. We attribute the performance gap to the fact that 
 the execution ports for the logical SSE operations are shared with the ALUs responsible for incrementing the indices and calculating the memory addresses.
 
