@@ -67,13 +67,13 @@ In this work we present an implementation of join on the Pentagon Abstract Domai
 Many huge bugs in computer science history has been caused by accessing array out-of-bounds, especially in the form of buffer overflow errors. %http://crypto.stanford.edu/cs155/papers/cowan-vulnerability.pdf
 The domain of abstract intrepretation has therefore gotten attention from researchers and new domains as the octagon and polyhedra domain has been invented. These allows to also capture relations between variables, something which is very useful when you want to prove invariants about array accesses. The ``classical'' interval domain is an example of a domain which is not precise enough to prove this. The main property you have to sacrifice for preciseness is speed.
 
-\erik{TODO: Add Intel's manual to the list of citations}
+%\erik{TODO: Add Intel's manual to the list of citations}
 
-\erik{Replace subsections with mypars if you need extra space}
+%\erik{Replace subsections with mypars if you need extra space}
 
 \mypar{Motivation} Logonzzo et al. proposes a new domain, Pentagon Abstract Domain, which allows for capturing intervals and strict upper bounds between variables. We have looked into this domain to optimize the most critical operations on the Intel Core architecture. We have found the join operation or more specifically the transitive closure performed inside a join to be the most critical and has thus focused our work on that operation.
 
-\mypar{Related work} There is a paper from P\"uschel et al. which explains how to do tiling and vectorization of the Floyd-Warshall algorithm, which also we use in the transitive closure. However, since this work is done on general graphs and our work is done on the special case where all edges have equal length, there is considerable amount of optimization. There is also an excellent manual from Intel, Intel® 64 and IA-32 Architectures Optimization Reference Manual, which has proven very useful for us. 
+\mypar{Related work} There is a paper from P\"uschel et al. which explains how to do tiling and vectorization of the Floyd-Warshall algorithm, which also we use in the transitive closure. However, since this work is done on general graphs and our work is done on the special case where all edges have equal length, there is considerable amount of optimization. There is also an excellent manual from Intel, Intel® 64 and IA-32 Architectures Optimization Reference Manual\cite{IntelManual}, which has proven very useful for us. 
 %Do not start the introduction with the abstract or a slightly modified
 %version. It follows a possible structure of the introduction. 
 %Note that the structure can be modified, but the
